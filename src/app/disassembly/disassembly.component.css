@@ -1,0 +1,29 @@
+mat-grid-tile {
+  background: #595959;
+  color: #d9d9d9;
+}
+
+nav ul {
+  width: 800px;
+  height: 600px;
+  overflow-x: hidden;
+  overflow-y: scroll;
+
+  background: #404040;
+  font-family: monospace;
+  font-size: large;
+
+  border: 5px inset;
+}
+
+nav li {
+  list-style-type: none;
+}
+
+li:hover {
+  background: #4d4d4d;
+}
+
+span {
+  white-space: pre;
+}
