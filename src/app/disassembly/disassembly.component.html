@@ -14,26 +14,12 @@
   </mat-grid-tile>
   <mat-grid-tile [colspan]="3" [rowspan]="4">
 
-    <div>
-      <span *ngIf="interpretedInstructions">
-        <nav>
-          <ul *ngFor="let instructionList of interpretedInstructions">
-            <li *ngFor="let instruction of instructionList">
-              <a id="{{instruction.addr}}">{{instruction.addr | hex | uppercase | padEnd: 10}} </a>
-              <span>{{instruction.opcode | padEnd: 20}} </span>
-              <span>{{instruction.mnemo | padEnd: 10}} </span>
-
-              <a *ngIf="instruction.mnemo.match('[JMP]') && instruction.opcode.startsWith('E9') || instruction.opcode.startsWith('EB')" href="#{{instruction.op1 | jumpAddress: instruction.addr: instruction.opcode.length}}">{{instruction.op1}}</a>
-              <a *ngIf="instruction.mnemo.match('JMP') && instruction.opcode.startsWith('FF')" href="#{{instruction.op1 | jumpAddress: 0: 0}}">{{instruction.op1}}</a>
-              <a *ngIf="instruction.mnemo.match('CALL') && instruction.opcode.startsWith('E8')" href="#{{instruction.op1 | jumpAddress: instruction.addr: instruction.opcode.length}}">{{instruction.op1}}</a>
-              <a *ngIf="instruction.mnemo.match('CALL') && instruction.opcode.startsWith('FF')" href="#{{instruction.op1 | jumpAddress: 0: 0}}">{{instruction.op1}}</a>
-              <span *ngIf="!instruction.mnemo.match('JMP') && !instruction.mnemo.match('CALL')">{{instruction.op1}}</span>
-              <span *ngIf="instruction.op2.length > 0">, {{instruction.op2}}</span>
-              <span *ngIf="instruction.op3.length > 0">, {{instruction.op3}}</span>
-            </li>
-         </ul>
-        </nav>
-      </span>
+    <div id="clusterize">
+      <div id="scrollArea" class="clusterize-scroll">
+        <ul id="contentArea" class="clusterize-content">
+          <li class="clusterize-no-data">No data to display</li>
+        </ul>
+      </div>
     </div>
 
   </mat-grid-tile>

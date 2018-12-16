@@ -9,17 +9,13 @@ import { MatNativeDateModule } from '@angular/material';
 import { MaterialModule } from '../material-module';
 import { APIInterceptor } from './http-interceptors/api-interceptor';
 import { DisassemblyComponent } from './disassembly/disassembly.component';
-import { HexPipe } from './hex.pipe';
-import { PadEndPipe } from './pad-end.pipe';
-import { JumpAddressPipe } from './jump-address.pipe';
+import { JumpDirective } from './jump.directive';
 
 @NgModule({
   declarations: [
     AppComponent,
     DisassemblyComponent,
-    HexPipe,
-    PadEndPipe,
-    JumpAddressPipe
+    JumpDirective
   ],
   imports: [
     BrowserModule,
