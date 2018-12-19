@@ -10,12 +10,16 @@ import { MaterialModule } from '../material-module';
 import { APIInterceptor } from './http-interceptors/api-interceptor';
 import { DisassemblyComponent } from './disassembly/disassembly.component';
 import { JumpDirective } from './jump.directive';
+import { GraphComponent } from './graph/graph.component';
+import { HomeComponent } from './home/home.component';
 
 @NgModule({
   declarations: [
     AppComponent,
     DisassemblyComponent,
-    JumpDirective
+    JumpDirective,
+    GraphComponent,
+    HomeComponent
   ],
   imports: [
     BrowserModule,
