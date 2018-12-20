@@ -1,4 +1,4 @@
-import {Component, OnInit, Renderer2} from '@angular/core';
+import {Component, OnInit} from '@angular/core';
 import {AppService, InterpretedInstruction} from '../app.service';
 import {MatTabChangeEvent} from '@angular/material';
 
@@ -10,6 +10,7 @@ import {MatTabChangeEvent} from '@angular/material';
 export class HomeComponent implements OnInit {
   currentTab = 'Disassembly';
   isGraphDisabled = true;
+  selectedTab = 0;
 
   interpretedInstructions: InterpretedInstruction[][] = [];
 
@@ -21,14 +22,18 @@ export class HomeComponent implements OnInit {
   onPicked(input: HTMLInputElement) {
     const file = input.files[0];
     if (file) {
+      this.selectedTab = 0;
       this.app.upload(file).subscribe(
         data => {
           this.interpretedInstructions = data;
+          input.value = null;
 
-          if (this.interpretedInstructions.length > 0) {
-            this.isGraphDisabled = false;
-          } else {
-            this.isGraphDisabled = true;
+          if (this.interpretedInstructions) {
+            if (this.interpretedInstructions.length > 0) {
+              this.isGraphDisabled = false;
+            } else {
+              this.isGraphDisabled = true;
+            }
           }
         }
       );
@@ -38,8 +43,10 @@ export class HomeComponent implements OnInit {
   tabSwap(event: MatTabChangeEvent) {
     if (event.tab.textLabel === 'Disassembly') {
       this.currentTab = 'Disassembly';
+      this.selectedTab = 0;
     } else if (event.tab.textLabel === 'Graph') {
       this.currentTab = 'Graph';
+      this.selectedTab = 1;
     }
   }
 }

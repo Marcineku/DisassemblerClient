@@ -11,19 +11,25 @@ export class DisassemblyComponent implements OnInit, OnDestroy {
   private interpretedInstructions: InterpretedInstruction[][];
   private listener;
   private clusterize: Clusterize;
+  private scrollValue = 0;
 
   @Input('interpretedInstructions') set _interpretedInstructions(interpretedInstructions: InterpretedInstruction[][]) {
     this.interpretedInstructions = interpretedInstructions;
 
-    if (this.interpretedInstructions.length > 0) {
+    if (this.interpretedInstructions && this.interpretedInstructions.length > 0) {
       this.update();
     }
   }
 
   @Input('currentTab') set  _currentTab(currentTab: string) {
     if (currentTab === 'Disassembly' && this.clusterize) {
+      document.getElementById('scrollArea').scrollTop = this.scrollValue;
       this.clusterize.refresh(true);
     }
+  }
+
+  scroll(event: Event) {
+    this.scrollValue = event.srcElement.scrollTop;
   }
 
   constructor(private renderer: Renderer2) {}
@@ -39,7 +45,7 @@ export class DisassemblyComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
-    this.listener.disable();
+    this.listener.dispose();
   }
 
   private update() {
@@ -94,8 +100,8 @@ export class DisassemblyComponent implements OnInit, OnDestroy {
 
         row.push(`<li id="${instruction.addr}">`
           + hex.toUpperCase().padEnd(12, ' ')
-          + instruction.opcode.padEnd(20, ' ')
-          + instruction.mnemo.trim().padEnd(10, ' ')
+          + instruction.opcode.padEnd(22, ' ')
+          + instruction.mnemo.trim().padEnd(12, ' ')
           + op1
           + op2
           + op3
@@ -108,6 +114,9 @@ export class DisassemblyComponent implements OnInit, OnDestroy {
       scrollId: 'scrollArea',
       contentId: 'contentArea'
     });
+
+    this.scrollValue = 0;
+    document.getElementById('scrollArea').scrollTop = this.scrollValue;
   }
 
   private getRelativeAdress(instruction: InterpretedInstruction) {

@@ -14,13 +14,13 @@
   </mat-grid-tile>
   <mat-grid-tile [colspan]="3" [rowspan]="4">
 
-    <mat-tab-group (selectedTabChange)="tabSwap($event)">
+    <mat-tab-group (selectedTabChange)="tabSwap($event)" [selectedIndex]="selectedTab">
       <mat-tab label="Disassembly">
         <app-disassembly [interpretedInstructions]="interpretedInstructions" [currentTab]="currentTab"></app-disassembly>
       </mat-tab>
 
       <mat-tab label="Graph" [disabled]="isGraphDisabled">
-        <app-graph></app-graph>
+        <app-graph [interpretedInstructions]="interpretedInstructions" [currentTab]="currentTab"></app-graph>
       </mat-tab>
     </mat-tab-group>
 
