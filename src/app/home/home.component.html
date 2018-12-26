@@ -30,10 +30,10 @@
     <div>
       <h4>Disassemble</h4>
       <div>
-        <textarea title="machine-code" cols="40" rows="20" label="machine-code"></textarea>
+        <textarea title="machine-code" cols="40" rows="20" label="machine-code" #machineCode></textarea>
       </div>
       <div>
-        <button>Submit</button>
+        <button (click)="onSubmit(machineCode)">Submit</button>
       </div>
     </div>
 

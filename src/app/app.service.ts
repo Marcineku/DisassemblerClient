@@ -18,7 +18,7 @@ export class AppService {
 
   constructor(private http: HttpClient) {}
 
-  upload(file: File) {
+  uploadFile(file: File) {
     if (!file) {
       return;
     }
@@ -27,6 +27,23 @@ export class AppService {
     formData.append('file', file);
 
     const req = new HttpRequest('POST', 'file', formData, {
+      reportProgress: true
+    });
+    return this.http.request(req).pipe(
+      map(event => this.getHttpEvent(event)),
+      last()
+    );
+  }
+
+  uploadText(text: string) {
+    if (text.length === 0) {
+      return;
+    }
+
+    const formData: FormData = new FormData();
+    formData.append('text', text);
+
+    const req = new HttpRequest('POST', 'text', formData, {
       reportProgress: true
     });
     return this.http.request(req).pipe(

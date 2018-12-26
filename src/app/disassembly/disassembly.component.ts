@@ -46,6 +46,7 @@ export class DisassemblyComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.listener.dispose();
+    this.clusterize.destroy(true);
   }
 
   private update() {
@@ -109,11 +110,15 @@ export class DisassemblyComponent implements OnInit, OnDestroy {
       }
     }
 
-    this.clusterize = new Clusterize({
-      rows: row,
-      scrollId: 'scrollArea',
-      contentId: 'contentArea'
-    });
+    if (this.clusterize) {
+      this.clusterize.update(row);
+    } else {
+      this.clusterize = new Clusterize({
+        rows: row,
+        scrollId: 'scrollArea',
+        contentId: 'contentArea'
+      });
+    }
 
     this.scrollValue = 0;
     document.getElementById('scrollArea').scrollTop = this.scrollValue;

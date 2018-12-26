@@ -23,10 +23,29 @@ export class HomeComponent implements OnInit {
     const file = input.files[0];
     if (file) {
       this.selectedTab = 0;
-      this.app.upload(file).subscribe(
+      this.app.uploadFile(file).subscribe(
         data => {
           this.interpretedInstructions = data;
           input.value = null;
+
+          if (this.interpretedInstructions) {
+            if (this.interpretedInstructions.length > 0) {
+              this.isGraphDisabled = false;
+            } else {
+              this.isGraphDisabled = true;
+            }
+          }
+        }
+      );
+    }
+  }
+
+  onSubmit(input: HTMLTextAreaElement) {
+    if (input.value.length > 0) {
+      this.selectedTab = 0;
+      this.app.uploadText(input.value).subscribe(
+        data => {
+          this.interpretedInstructions = data;
 
           if (this.interpretedInstructions) {
             if (this.interpretedInstructions.length > 0) {
