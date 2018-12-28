@@ -35,7 +35,7 @@ export class GraphComponent implements OnInit {
         d3.select(this.svg).append('g');
         this.g = document.getElementsByTagName('g')[0];
         d3.select(this.svg).call(d3.zoom()
-          .scaleExtent([1 / 2, 8])
+          .scaleExtent([1 / 2, 20])
           .on('zoom', this.zoom));
 
         const codeSections: CodeSection[] = [];
@@ -43,19 +43,28 @@ export class GraphComponent implements OnInit {
         for (const list of this.interpretedInstructions) {
           for (let i = 0; i < list.length; ++i) {
             if (list[i].opcode.startsWith('75')) {
-              const addr = this.getRelativeAdressByte(list[list.length - 1].addr, list[i]);
+              const addr = this.getRelativeAddressByte(list[list.length - 1].addr, list[i]);
               if (addr > list[i].addr) {
                 // If - forward jump
               } else {
                 // Loop - backward jump
                 const addrIndex = this.getInstructionIndex(list, addr);
-                codeSections.push(new CodeSection(addrIndex, i, 'LOOP:'));
-
-                if (addrIndex === -1) {
-                  console.log(addr.toString(16));
-                  console.log(list[i]);
-                }
+                const type = 'LOOP:';
+                codeSections.push(new CodeSection(addrIndex, i, type));
               }
+            } else if (list[i].opcode.startsWith('E8')) {
+              if (codeSections.length > 0) {
+                codeSections.push(new CodeSection(this.getLastSection(codeSections).endIndex + 1, i, ''));
+              } else {
+                codeSections.push(new CodeSection(0, i, ''));
+              }
+
+              const addr = this.getRelativeAddressDWord(list[list.length - 1].addr, list[i]);
+              list[i].op1 = 'LOC_' + addr.toString(16).toUpperCase().padStart(8, '0');
+              const addrIndex = this.getInstructionIndex(list, addr);
+              const retIndex = this.getRetIndexAfterIndex(list, addrIndex);
+              const type = 'LOC_ ' + addr.toString(16).toUpperCase().padStart(8, '0') + ' CALL:';
+              codeSections.push(new CodeSection(addrIndex, retIndex, type));
             }
           }
         }
@@ -67,36 +76,11 @@ export class GraphComponent implements OnInit {
         tree(root);
 
         d3.select(this.g)
-          .selectAll('line.link')
-          .data(root.links())
-          .enter()
-          .append('line')
-          .classed('link', true)
-          .attr('x1', function (d: any) {
-            return d.source.x;
-          })
-          .attr('y1', function (d: any) {
-            return d.source.y;
-          })
-          .attr('x2', function (d: any) {
-            return d.target.x;
-          })
-          .attr('y2', function (d: any) {
-            return d.target.y;
-          });
-
-        d3.select(this.g)
           .selectAll('rect.node')
           .data(root.descendants())
           .enter()
           .append('rect')
           .classed('node', true)
-          .attr('x', function (d: any) {
-            return d.x;
-          })
-          .attr('y', function (d: any) {
-            return d.y;
-          })
           .attr('width', function (d: any) {
             const txt = d.data.content.split('\n');
             let maxLength = txt[0].length;
@@ -106,12 +90,27 @@ export class GraphComponent implements OnInit {
               }
             }
 
-            return maxLength * 10;
+            d.data.width = maxLength * 12;
+            return d.data.width;
           })
           .attr('height', function (d: any) {
             const txt = d.data.content.split('\n');
 
-            return txt.length * 21;
+            d.data.height = txt.length * 16;
+            return d.data.height;
+          })
+          .attr('x', function (d: any) {
+            d.data.x = d.x - d.data.width / 2;
+            return d.data.x;
+          })
+          .attr('y', function (d: any) {
+            if (d.parent) {
+              d.data.y = d.parent.data.y + d.parent.data.height + 100;
+              return d.data.y;
+            } else {
+              d.data.y = d.y;
+              return d.data.y;
+            }
           });
 
         d3.select(this.g)
@@ -122,10 +121,10 @@ export class GraphComponent implements OnInit {
           .text(d => d.data.type)
           .attr('class', 'type')
           .attr('x', function (d: any) {
-            return d.x + 50;
+            return d.data.x;
           })
           .attr('y', function (d: any) {
-            return d.y - 5;
+            return d.data.y - 5;
           });
 
         const text = d3.select(this.g)
@@ -134,10 +133,10 @@ export class GraphComponent implements OnInit {
           .enter()
           .append('text')
           .attr('x', function (d: any) {
-            return d.x;
+            return d.data.x + 10;
           })
           .attr('y', function (d: any) {
-            return d.y;
+            return d.data.y;
           });
 
         text.selectAll('tspan.text')
@@ -146,16 +145,49 @@ export class GraphComponent implements OnInit {
           .append('tspan')
           .attr('class', 'text')
           .text(d => d)
-          .attr('x', 500)
-          .attr('dy', 22);
+          .attr('x', function () {
+            return d3.select(this.parentNode).attr('x');
+          })
+          .attr('dy', 16);
+
+        d3.select(this.g)
+          .selectAll('line.link')
+          .data(root.links())
+          .enter()
+          .append('line')
+          .classed('link', true)
+          .attr('x1', function (d: any) {
+            return d.source.data.x + d.source.data.width / 2;
+          })
+          .attr('y1', function (d: any) {
+            return d.source.data.y + d.source.data.height;
+          })
+          .attr('x2', function (d: any) {
+            return d.target.data.x + d.target.data.width / 2;
+          })
+          .attr('y2', function (d: any) {
+            return d.target.data.y;
+          });
+
+        for (const section of codeSections) {
+          console.log('Start: ' + section.startIndex + ' Stop: ' + section.endIndex);
+        }
       }
     }
   }
 
-  private getRelativeAdressByte(lastInstrAdress: number, instruction: InterpretedInstruction) {
+  private getRelativeAddressByte(lastInstrAdress: number, instruction: InterpretedInstruction) {
     let relativeJumpAdress = parseInt(instruction.op1, 16) + instruction.addr + instruction.opcode.length / 2;
     if (relativeJumpAdress > lastInstrAdress) {
       relativeJumpAdress = relativeJumpAdress - 0x100;
+    }
+    return relativeJumpAdress;
+  }
+
+  private getRelativeAddressDWord(lastInstrAdress: number, instruction: InterpretedInstruction) {
+    let relativeJumpAdress = parseInt(instruction.op1, 16) + instruction.addr + instruction.opcode.length / 2;
+    if (relativeJumpAdress > lastInstrAdress) {
+      relativeJumpAdress = relativeJumpAdress - 0x100000000;
     }
     return relativeJumpAdress;
   }
@@ -180,6 +212,7 @@ export class GraphComponent implements OnInit {
 
   private getInstructionIndex(list: InterpretedInstruction[], address: number): number {
     let index = -1;
+
     for (let i = 0; i < list.length; ++i) {
       if (list[i].addr === address) {
         index = i;
@@ -188,6 +221,28 @@ export class GraphComponent implements OnInit {
     }
 
     return index;
+  }
+
+  private getRetIndexAfterIndex(list: InterpretedInstruction[], address: number): number {
+    for (let i = address; i < list.length; ++i) {
+      if (list[i].mnemo.match('[RET] | [JUMP]')) {
+        return i;
+      }
+    }
+
+    return -1;
+  }
+
+  private getLastSection(codeSections: CodeSection[]) {
+    let _section = null;
+
+    for (const section of codeSections) {
+      if (section.type.length === 0 || section.type.match('LOOP')) {
+        _section =  section;
+      }
+    }
+
+    return _section;
   }
 
   private buildTree(instructions: InterpretedInstruction[][], codeSections: CodeSection[]): Node {
@@ -205,7 +260,7 @@ export class GraphComponent implements OnInit {
     if (codeSections.length > 0) {
       preStartIndex = 0;
       preStopIndex = codeSections[0].startIndex - 1;
-      postStartIndex = codeSections[codeSections.length - 1].endIndex + 1;
+      postStartIndex = this.getLastSection(codeSections).endIndex + 1;
       postStopIndex = list.length - 1;
     } else {
       preStartIndex = 0;
@@ -213,13 +268,24 @@ export class GraphComponent implements OnInit {
     }
 
     let children: Node[] = [];
-    const root = new Node(this.buildInstrString(list, preStartIndex, preStopIndex), '', children);
+    let root = new Node(this.buildInstrString(list, preStartIndex, preStopIndex), '', children);
+
+    let haveBeginningSection = false;
+    if (codeSections.length > 0 && codeSections[0].startIndex === 0) {
+      root = new Node(this.buildInstrString(list, codeSections[0].startIndex, codeSections[0].endIndex), codeSections[0].type, children);
+      haveBeginningSection = true;
+    }
 
     for (const section of codeSections) {
+      if (haveBeginningSection) {
+        haveBeginningSection = false;
+        continue;
+      }
+
       children.push(new Node(this.buildInstrString(list, section.startIndex, section.endIndex), section.type, children = []));
     }
 
-    if (codeSections.length > 0) {
+    if (codeSections.length > 0 && postStartIndex < postStopIndex) {
       children.push(new Node(this.buildInstrString(list, postStartIndex, postStopIndex), ''));
     }
 
@@ -227,8 +293,7 @@ export class GraphComponent implements OnInit {
   }
 
   private buildInstrString(instructions: InterpretedInstruction[], startIndex: number, stopIndex: number): string {
-    console.log('srt: ' + startIndex);
-    console.log('stp: ' + stopIndex);
+    let intCounter = 0;
 
     let instrString = '';
     for (let i = startIndex; i <= stopIndex; ++i) {
@@ -246,7 +311,18 @@ export class GraphComponent implements OnInit {
         }
       }
 
-      instrString = instrString + '\n' + tmp;
+      if (!tmp.match('INT 3')) {
+        if (intCounter > 0) {
+          instrString = instrString + '\n' + '------------';
+          instrString = instrString + '\n' + 'INT 3 |x' + intCounter + '|';
+          instrString = instrString + '\n' + '------------';
+          intCounter = 0;
+        }
+
+        instrString = instrString + '\n' + tmp.trim();
+      } else {
+        ++intCounter;
+      }
     }
 
     return instrString;
