@@ -46,6 +46,9 @@ export class GraphComponent implements OnInit {
               const addr = this.getRelativeAddressByte(list[list.length - 1].addr, list[i]);
               if (addr > list[i].addr) {
                 // If - forward jump
+                const addrIndex = this.getInstructionIndex(list, addr);
+                const type = 'IF TRUE:';
+                codeSections.push(new CodeSection(i + 1, addrIndex - 1, type));
               } else {
                 // Loop - backward jump
                 const addrIndex = this.getInstructionIndex(list, addr);
@@ -67,6 +70,11 @@ export class GraphComponent implements OnInit {
               codeSections.push(new CodeSection(addrIndex, retIndex, type));
             }
           }
+        }
+
+        for (const section of codeSections) {
+          const at = this.interpretedInstructions[0][section.startIndex].addr.toString(16);
+          console.log('Start: ' + section.startIndex + ' Stop: ' + section.endIndex + ' Type: ' + section.type + ' At: ' + at);
         }
 
         const data = this.buildTree(this.interpretedInstructions, codeSections);
@@ -168,17 +176,13 @@ export class GraphComponent implements OnInit {
           .attr('y2', function (d: any) {
             return d.target.data.y;
           });
-
-        for (const section of codeSections) {
-          console.log('Start: ' + section.startIndex + ' Stop: ' + section.endIndex);
-        }
       }
     }
   }
 
   private getRelativeAddressByte(lastInstrAdress: number, instruction: InterpretedInstruction) {
     let relativeJumpAdress = parseInt(instruction.op1, 16) + instruction.addr + instruction.opcode.length / 2;
-    if (relativeJumpAdress > lastInstrAdress) {
+    if (parseInt(instruction.op1, 16) > 0x7F) {
       relativeJumpAdress = relativeJumpAdress - 0x100;
     }
     return relativeJumpAdress;
@@ -186,7 +190,7 @@ export class GraphComponent implements OnInit {
 
   private getRelativeAddressDWord(lastInstrAdress: number, instruction: InterpretedInstruction) {
     let relativeJumpAdress = parseInt(instruction.op1, 16) + instruction.addr + instruction.opcode.length / 2;
-    if (relativeJumpAdress > lastInstrAdress) {
+    if (parseInt(instruction.op1, 16) > 0x7F000000) {
       relativeJumpAdress = relativeJumpAdress - 0x100000000;
     }
     return relativeJumpAdress;
@@ -237,7 +241,7 @@ export class GraphComponent implements OnInit {
     let _section = null;
 
     for (const section of codeSections) {
-      if (section.type.length === 0 || section.type.match('LOOP')) {
+      if (section.type.length === 0 || section.type.match('LOOP') || section.type.match('IF')) {
         _section =  section;
       }
     }
