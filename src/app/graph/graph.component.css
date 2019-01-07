@@ -1,6 +1,6 @@
 #graph {
-  width: 1000px;
-  height: 628px;
+  width: 1400px;
+  height: 796px;
 
   border: 5px inset;
 
@@ -26,6 +26,6 @@
   font-size: large;
 }
 
-.type {
+.header {
   fill: #d9d9d9;
 }

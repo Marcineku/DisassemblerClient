@@ -11,15 +11,29 @@ import {InterpretedInstruction} from '../app.service';
 export class GraphComponent implements OnInit {
   private svg: Element;
   private g: Element;
-
   private needToUpdate = false;
-
   private interpretedInstructions: InterpretedInstruction[][];
+  private instructions: InterpretedInstruction[];
+  private entryPoint = 0;
+  private graph: Graph;
+
+  constructor() { }
+  ngOnInit() { }
 
   @Input('interpretedInstructions') set _interpretedInstructions(interpretedInstructions: InterpretedInstruction[][]) {
-    this.interpretedInstructions = interpretedInstructions;
+    this.interpretedInstructions = JSON.parse(JSON.stringify(interpretedInstructions));
 
     if (this.interpretedInstructions && this.interpretedInstructions.length > 0) {
+      this.entryPoint = this.interpretedInstructions[0][0].addr;
+      this.interpretedInstructions[0].shift();
+
+      this.instructions = [];
+      for (const list of this.interpretedInstructions) {
+        for (const i of list) {
+          this.instructions.push(i);
+        }
+      }
+
       this.needToUpdate = true;
     }
   }
@@ -30,7 +44,6 @@ export class GraphComponent implements OnInit {
         this.clear();
         this.needToUpdate = false;
 
-        // Drawing graph
         this.svg = document.getElementById('graph');
         d3.select(this.svg).append('g');
         this.g = document.getElementsByTagName('g')[0];
@@ -38,149 +51,155 @@ export class GraphComponent implements OnInit {
           .scaleExtent([1 / 2, 20])
           .on('zoom', this.zoom));
 
+        // Drawing graph
+        const startIndex = this.getInstructionIndex(this.entryPoint);
+
+        const stack: number[] = [];
+        const prog: string[] = [];
+        const locations: string[] = [];
+
+        stack.push(-1);
         const codeSections: CodeSection[] = [];
+        this.graph = new Graph(this.instructions, this.g, 50, 150);
 
-        for (const list of this.interpretedInstructions) {
-          for (let i = 0; i < list.length; ++i) {
-            if (list[i].opcode.startsWith('75')) {
-              const addr = this.getRelativeAddressByte(list[list.length - 1].addr, list[i]);
-              if (addr > list[i].addr) {
-                // If - forward jump
-                const addrIndex = this.getInstructionIndex(list, addr);
-                const type = 'IF TRUE:';
-                codeSections.push(new CodeSection(i + 1, addrIndex - 1, type));
-              } else {
-                // Loop - backward jump
-                const addrIndex = this.getInstructionIndex(list, addr);
-                const type = 'LOOP:';
-                codeSections.push(new CodeSection(addrIndex, i, type));
-              }
-            } else if (list[i].opcode.startsWith('E8')) {
-              if (codeSections.length > 0) {
-                codeSections.push(new CodeSection(this.getLastSection(codeSections).endIndex + 1, i, ''));
-              } else {
-                codeSections.push(new CodeSection(0, i, ''));
-              }
+        let p = startIndex;
+        prog.push('START');
+        let x = 0;
+        for (let ip = startIndex; ip < this.instructions.length; ++ip) {
+          const instruction = this.instructions[ip];
 
-              const addr = this.getRelativeAddressDWord(list[list.length - 1].addr, list[i]);
-              list[i].op1 = 'LOC_' + addr.toString(16).toUpperCase().padStart(8, '0');
-              const addrIndex = this.getInstructionIndex(list, addr);
-              const retIndex = this.getRetIndexAfterIndex(list, addrIndex);
-              const type = 'LOC_ ' + addr.toString(16).toUpperCase().padStart(8, '0') + ' CALL:';
-              codeSections.push(new CodeSection(addrIndex, retIndex, type));
+          if (instruction.opcode.startsWith('E8')) {
+            // CALL
+            prog.push(ip.toString(10));
+            prog.push('CALL');
+
+            const addr = this.getRelativeAddressDWord(instruction);
+
+            const location = 'LOC_' + this.instructions[p].addr.toString(16).padStart(8, '0').toUpperCase();
+            if (!locations.includes(location)) {
+              locations.push(location);
+              codeSections.push(new CodeSection(stack.length, p, ip, location, addr));
             }
+
+            stack.push(ip + 1);
+            ip = this.getInstructionIndex(addr);
+
+            if (ip === -1) {
+              console.log(addr);
+              console.log(instruction);
+            }
+
+            p = ip;
+            --ip;
+          } else if (instruction.mnemo.match('RET')) {
+            prog.push(ip.toString(10));
+
+            // const index = stack.pop();
+
+            const location = 'LOC_' + this.instructions[p].addr.toString(16).padStart(8, '0').toUpperCase();
+            if (!locations.includes(location)) {
+              locations.push(location);
+              codeSections.push(new CodeSection(stack.length, p, ip, location, this.instructions[0].addr));
+            }
+
+            ip = stack.pop();
+            p = ip;
+
+            if (ip === -1) {
+              prog.push('EXIT');
+              break;
+            } else {
+              prog.push('RET');
+            }
+
+            --ip;
+          } else if (instruction.opcode.startsWith('E9')) {
+            // JMP rel32
+            prog.push(ip.toString(10));
+            prog.push('JMP');
+
+            const addr = this.getRelativeAddressDWord(instruction);
+
+            const location = 'LOC_' + this.instructions[p].addr.toString(16).padStart(8, '0').toUpperCase();
+            if (!locations.includes(location)) {
+              locations.push(location);
+              codeSections.push(new CodeSection(stack.length, p, ip, location, addr));
+            }
+
+            ip = this.getInstructionIndex(addr);
+            p = ip;
+
+            --ip;
+          } else if (instruction.opcode.startsWith('EB')) {
+            // JMP rel8
+            prog.push(ip.toString(10));
+            prog.push('JMP');
+
+            const addr = this.getRelativeAddressByte(instruction);
+
+            const location = 'LOC_' + this.instructions[p].addr.toString(16).padStart(8, '0').toUpperCase();
+            if (!locations.includes(location)) {
+              locations.push(location);
+              codeSections.push(new CodeSection(stack.length, p, ip, location, addr));
+            }
+
+            ip = this.getInstructionIndex(addr);
+            p = ip;
+
+            --ip;
+          } else if (instruction.opcode.startsWith('74') || instruction.opcode.startsWith('75')) {
+            // JZ rel8
+            prog.push(ip.toString(10));
+
+            const addr = this.getRelativeAddressByte(instruction);
+
+            const location = 'LOC_' + this.instructions[p].addr.toString(16).padStart(8, '0').toUpperCase();
+            if (!locations.includes(location)) {
+              locations.push(location);
+              codeSections.push(new CodeSection(stack.length, p, ip, location, addr));
+            }
+
+            p = ip;
+            ++p;
+
+            stack.push(ip + 1);
+            ip = this.getInstructionIndex(addr);
+
+            if (ip === -1) {
+              console.log(addr);
+              console.log(instruction);
+            }
+
+            p = ip;
+            --ip;
+          }
+
+          prog.push(ip.toString(10));
+
+          ++x;
+          if (x > 2 * this.instructions.length) {
+            break;
           }
         }
 
-        for (const section of codeSections) {
-          const at = this.interpretedInstructions[0][section.startIndex].addr.toString(16);
-          console.log('Start: ' + section.startIndex + ' Stop: ' + section.endIndex + ' Type: ' + section.type + ' At: ' + at);
+        this.graph.drawCodeSections(codeSections);
+
+        console.log(prog);
+        console.log(codeSections);
+        console.log(locations);
+
+        for (let i = 0; i < codeSections.length; ++i) {
+          for (let j = 0; j < codeSections.length; ++j) {
+            if (codeSections[i].header === codeSections[j].header && codeSections[i] !== codeSections[j]) {
+               console.log(codeSections[i]);
+            }
+          }
         }
-
-        const data = this.buildTree(this.interpretedInstructions, codeSections);
-
-        const tree = d3.tree().size([this.svg.clientWidth, this.svg.clientHeight]);
-        const root = d3.hierarchy(data);
-        tree(root);
-
-        d3.select(this.g)
-          .selectAll('rect.node')
-          .data(root.descendants())
-          .enter()
-          .append('rect')
-          .classed('node', true)
-          .attr('width', function (d: any) {
-            const txt = d.data.content.split('\n');
-            let maxLength = txt[0].length;
-            for (const i of txt) {
-              if (i.length > maxLength) {
-                maxLength = i.length;
-              }
-            }
-
-            d.data.width = maxLength * 12;
-            return d.data.width;
-          })
-          .attr('height', function (d: any) {
-            const txt = d.data.content.split('\n');
-
-            d.data.height = txt.length * 16;
-            return d.data.height;
-          })
-          .attr('x', function (d: any) {
-            d.data.x = d.x - d.data.width / 2;
-            return d.data.x;
-          })
-          .attr('y', function (d: any) {
-            if (d.parent) {
-              d.data.y = d.parent.data.y + d.parent.data.height + 100;
-              return d.data.y;
-            } else {
-              d.data.y = d.y;
-              return d.data.y;
-            }
-          });
-
-        d3.select(this.g)
-          .selectAll('text.type')
-          .data(root.descendants())
-          .enter()
-          .append('text')
-          .text(d => d.data.type)
-          .attr('class', 'type')
-          .attr('x', function (d: any) {
-            return d.data.x;
-          })
-          .attr('y', function (d: any) {
-            return d.data.y - 5;
-          });
-
-        const text = d3.select(this.g)
-          .selectAll('text.text')
-          .data(root.descendants())
-          .enter()
-          .append('text')
-          .attr('x', function (d: any) {
-            return d.data.x + 10;
-          })
-          .attr('y', function (d: any) {
-            return d.data.y;
-          });
-
-        text.selectAll('tspan.text')
-          .data(d => d.data.content.split('\n'))
-          .enter()
-          .append('tspan')
-          .attr('class', 'text')
-          .text(d => d)
-          .attr('x', function () {
-            return d3.select(this.parentNode).attr('x');
-          })
-          .attr('dy', 16);
-
-        d3.select(this.g)
-          .selectAll('line.link')
-          .data(root.links())
-          .enter()
-          .append('line')
-          .classed('link', true)
-          .attr('x1', function (d: any) {
-            return d.source.data.x + d.source.data.width / 2;
-          })
-          .attr('y1', function (d: any) {
-            return d.source.data.y + d.source.data.height;
-          })
-          .attr('x2', function (d: any) {
-            return d.target.data.x + d.target.data.width / 2;
-          })
-          .attr('y2', function (d: any) {
-            return d.target.data.y;
-          });
       }
     }
   }
 
-  private getRelativeAddressByte(lastInstrAdress: number, instruction: InterpretedInstruction) {
+  private getRelativeAddressByte(instruction: InterpretedInstruction) {
     let relativeJumpAdress = parseInt(instruction.op1, 16) + instruction.addr + instruction.opcode.length / 2;
     if (parseInt(instruction.op1, 16) > 0x7F) {
       relativeJumpAdress = relativeJumpAdress - 0x100;
@@ -188,18 +207,12 @@ export class GraphComponent implements OnInit {
     return relativeJumpAdress;
   }
 
-  private getRelativeAddressDWord(lastInstrAdress: number, instruction: InterpretedInstruction) {
+  private getRelativeAddressDWord(instruction: InterpretedInstruction) {
     let relativeJumpAdress = parseInt(instruction.op1, 16) + instruction.addr + instruction.opcode.length / 2;
     if (parseInt(instruction.op1, 16) > 0x7F000000) {
       relativeJumpAdress = relativeJumpAdress - 0x100000000;
     }
     return relativeJumpAdress;
-  }
-
-  constructor() {
-  }
-
-  ngOnInit() {
   }
 
   private zoom() {
@@ -214,86 +227,206 @@ export class GraphComponent implements OnInit {
     }
   }
 
-  private getInstructionIndex(list: InterpretedInstruction[], address: number): number {
-    let index = -1;
-
-    for (let i = 0; i < list.length; ++i) {
-      if (list[i].addr === address) {
-        index = i;
-        return index;
-      }
-    }
-
-    return index;
-  }
-
-  private getRetIndexAfterIndex(list: InterpretedInstruction[], address: number): number {
-    for (let i = address; i < list.length; ++i) {
-      if (list[i].mnemo.match('[RET] | [JUMP]')) {
+  private getInstructionIndex(address: number): number {
+    for (let i = 0; i < this.instructions.length; ++i) {
+      if (this.instructions[i].addr === address) {
         return i;
       }
     }
 
     return -1;
   }
+}
 
-  private getLastSection(codeSections: CodeSection[]) {
-    let _section = null;
+class CodeSection {
+  level: number;
+  startIndex: number;
+  stopIndex: number;
+  header: string;
 
-    for (const section of codeSections) {
-      if (section.type.length === 0 || section.type.match('LOOP') || section.type.match('IF')) {
-        _section =  section;
-      }
-    }
+  targetAddress: number;
 
-    return _section;
+  constructor(level: number, startIndex: number, stopIndex: number, header: string, targetAddress: number) {
+    this.level = level;
+    this.startIndex = startIndex;
+    this.stopIndex = stopIndex;
+    this.header = header;
+    this.targetAddress = targetAddress;
+  }
+}
+
+class Graph {
+  private readonly instructions: InterpretedInstruction[];
+  private readonly padX;
+  private readonly padY;
+  private readonly g: Element;
+
+  private nodes: Node[] = [];
+
+  private currX = 0;
+  private currY = 0;
+
+  constructor(instructions: InterpretedInstruction[], g: Element, padX: number, padY: number) {
+    this.instructions = instructions;
+    this.g = g;
+    this.padX = padX;
+    this.padY = padY;
   }
 
-  private buildTree(instructions: InterpretedInstruction[][], codeSections: CodeSection[]): Node {
-    const list: InterpretedInstruction[] = [];
-    for (const i of instructions) {
-      for (const j of i) {
-        list.push(j);
+  drawCodeSections(codeSections: CodeSection[]) {
+    for (const codeSection of codeSections) {
+      const node = new Node(this.instructions, codeSection);
+      this.nodes.push(node);
+    }
+
+    for (let i = 0; i < this.nodes.length; ++i) {
+      const node = this.nodes[i];
+
+      if (i > 0) {
+        const previousNode = this.nodes[i - 1];
+
+        if (node.level > 1) {
+          const nodesFromPreviousLevel: Node[] = [];
+          for (const j of this.nodes) {
+            if (j.level === node.level - 1) {
+              nodesFromPreviousLevel.push(j);
+            }
+          }
+          let maxWidth = nodesFromPreviousLevel[0].width;
+          for (const j of  nodesFromPreviousLevel) {
+            if (j.width > maxWidth) {
+              maxWidth = j.width;
+            }
+          }
+          this.currX = (maxWidth + this.padX) * (node.level - 1);
+        } else {
+          this.currX = 0;
+        }
+
+        this.currY += previousNode.height + this.padY;
+      }
+
+      node.x = this.currX;
+      node.y = this.currY;
+      this.drawNode(node);
+    }
+
+    for (let i = 0; i < this.nodes.length; ++i) {
+      const node = this.nodes[i];
+      const instruction = this.instructions[node.stopIndex];
+      if (instruction.opcode.startsWith('E8')) {
+        const target = this.getNode(node.targetAddress);
+        if (target != null) {
+          this.drawLine(node, target);
+        }
+      } else if (instruction.opcode.startsWith('74') || instruction.opcode.startsWith('75')) {
+        let target = this.getNode(node.targetAddress);
+        if (target != null) {
+          this.drawLine(node, target);
+        }
+
+        target = this.getNextNodeOnSameLevel(i);
+        if (target != null) {
+          this.drawLine(node, target);
+        }
+      } else if (instruction.opcode.startsWith('EB') || instruction.opcode.startsWith('E9')) {
+        const target = this.getNode(node.targetAddress);
+        if (target != null) {
+          this.drawLine(node, target);
+        }
+      } else if (instruction.mnemo.match('RET')) {
+        const target = this.getNextNodeOnSameLevel(this.getPreviousCallNodeIndex(i));
+        if (target != null) {
+          this.drawLine(node, target);
+        }
+      }
+    }
+  }
+
+  private getPreviousCallNodeIndex(index: number) {
+    for (let i = index; i >= 0; --i) {
+      if (this.instructions[this.nodes[i].stopIndex].opcode.startsWith('E8')) {
+        return i;
       }
     }
 
-    let preStartIndex;
-    let preStopIndex;
-    let postStartIndex;
-    let postStopIndex;
-    if (codeSections.length > 0) {
-      preStartIndex = 0;
-      preStopIndex = codeSections[0].startIndex - 1;
-      postStartIndex = this.getLastSection(codeSections).endIndex + 1;
-      postStopIndex = list.length - 1;
-    } else {
-      preStartIndex = 0;
-      preStopIndex = list.length - 1;
-    }
+    return null;
+  }
 
-    let children: Node[] = [];
-    let root = new Node(this.buildInstrString(list, preStartIndex, preStopIndex), '', children);
-
-    let haveBeginningSection = false;
-    if (codeSections.length > 0 && codeSections[0].startIndex === 0) {
-      root = new Node(this.buildInstrString(list, codeSections[0].startIndex, codeSections[0].endIndex), codeSections[0].type, children);
-      haveBeginningSection = true;
-    }
-
-    for (const section of codeSections) {
-      if (haveBeginningSection) {
-        haveBeginningSection = false;
-        continue;
+  private getNextNodeOnSameLevel(index: number): Node {
+    for (let i = index + 1; i < this.nodes.length; ++i) {
+      if (this.nodes[i].level === this.nodes[index].level) {
+        return this.nodes[i];
       }
-
-      children.push(new Node(this.buildInstrString(list, section.startIndex, section.endIndex), section.type, children = []));
     }
 
-    if (codeSections.length > 0 && postStartIndex < postStopIndex) {
-      children.push(new Node(this.buildInstrString(list, postStartIndex, postStopIndex), ''));
+    return null;
+  }
+
+  private getNode(address: number): Node {
+    for (const i of this.nodes) {
+      if (this.instructions[i.startIndex].addr === address) {
+        return i;
+      }
     }
 
-    return root;
+    return null;
+  }
+
+  private drawNode(node: Node) {
+    d3.select(this.g).append('rect').classed('node', true).attr('x', node.x).attr('y', node.y)
+      .attr('width', node.width).attr('height', node.height);
+    d3.select(this.g).append('text').classed('header', true).text(node.header).attr('x', node.x).attr('y', node.y - 5);
+    const text = d3.select(this.g).append('text').attr('x', node.x + 10).attr('y', node.y);
+    text.selectAll('tspan.text').data(node.content.split('\n')).enter().append('tspan').attr('class', 'text').text(d => d)
+      .attr('x', function () {
+        return d3.select(this.parentNode).attr('x');
+      }).attr('dy', 16);
+  }
+
+  private drawLine0(x1, x2, y1, y2) {
+    d3.select(this.g).append('line').classed('link', true)
+      .attr('x1', x1)
+      .attr('x2', x2)
+      .attr('y1', y1)
+      .attr('y2', y2);
+  }
+
+  private drawLine(source: Node, target: Node) {
+    const x1 = source.x + source.width / 2;
+    const y1 = source.y + source.height;
+    const x2 = target.x + target.width / 2;
+    const y2 = target.y;
+    d3.select(this.g).append('line').classed('link', true)
+      .attr('x1', x1)
+      .attr('y1', y1)
+      .attr('x2', x2)
+      .attr('y2', y2);
+  }
+}
+
+class Node extends CodeSection {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+
+  content: string;
+
+  constructor(instructions: InterpretedInstruction[], codeSection: CodeSection) {
+    super(codeSection.level, codeSection.startIndex, codeSection.stopIndex, codeSection.header, codeSection.targetAddress);
+
+    this.content = this.buildInstrString(instructions, this.startIndex, this.stopIndex);
+
+    const text = this.content.split('\n');
+    let maxLength = text[0].length;
+    for (const i of text) {
+      if (i.length > maxLength) {
+        maxLength = i.length;
+      }
+    }
+    this.width = maxLength * 12;
+    this.height = text.length * 16;
   }
 
   private buildInstrString(instructions: InterpretedInstruction[], startIndex: number, stopIndex: number): string {
@@ -302,7 +435,7 @@ export class GraphComponent implements OnInit {
     let instrString = '';
     for (let i = startIndex; i <= stopIndex; ++i) {
       const instr = instructions[i];
-      let tmp = instr.mnemo;
+      let tmp = instr.addr.toString(16).padStart(8, '0').toUpperCase() + ' ' + instr.mnemo.trim();
       if (instr.op1.length > 0) {
         tmp = tmp + ' ' + instr.op1;
 
@@ -330,34 +463,5 @@ export class GraphComponent implements OnInit {
     }
 
     return instrString;
-  }
-}
-
-class CodeSection {
-  startIndex: number;
-  endIndex: number;
-  type: string;
-
-  constructor(startIndex: number, endIndex: number, type: string) {
-    this.startIndex = startIndex;
-    this.endIndex = endIndex;
-    this.type = type;
-  }
-}
-
-class Node {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-
-  content: string;
-  type: string;
-  children: Node[];
-
-  constructor(content: string, type: string, children: Node[] = []) {
-    this.content = content;
-    this.type = type;
-    this.children = children;
   }
 }

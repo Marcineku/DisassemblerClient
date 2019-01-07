@@ -1,4 +1,4 @@
-import {Component, Input, OnDestroy, OnInit, Renderer2} from '@angular/core';
+import {AfterViewChecked, Component, Input, OnDestroy, OnInit, Renderer2} from '@angular/core';
 import {InterpretedInstruction} from '../app.service';
 import * as Clusterize from 'clusterize.js';
 
@@ -7,16 +7,21 @@ import * as Clusterize from 'clusterize.js';
   templateUrl: './disassembly.component.html',
   styleUrls: ['./disassembly.component.css']
 })
-export class DisassemblyComponent implements OnInit, OnDestroy {
+export class DisassemblyComponent implements OnInit, OnDestroy, AfterViewChecked {
   private interpretedInstructions: InterpretedInstruction[][];
   private listener;
   private clusterize: Clusterize;
+  private liHeight = -1;
   private scrollValue = 0;
+  private entryPoint = 0;
 
   @Input('interpretedInstructions') set _interpretedInstructions(interpretedInstructions: InterpretedInstruction[][]) {
-    this.interpretedInstructions = interpretedInstructions;
+    this.interpretedInstructions = JSON.parse(JSON.stringify(interpretedInstructions));
 
     if (this.interpretedInstructions && this.interpretedInstructions.length > 0) {
+      this.entryPoint = this.interpretedInstructions[0][0].addr;
+      this.interpretedInstructions[0].shift();
+
       this.update();
     }
   }
@@ -42,6 +47,12 @@ export class DisassemblyComponent implements OnInit, OnDestroy {
         document.getElementById('scrollArea').scrollTop = el.offsetHeight * elNo + el.offsetHeight;
       }
     });
+  }
+
+  ngAfterViewChecked() {
+    if (this.liHeight === -1) {
+      this.liHeight = document.getElementsByClassName('clusterize-no-data').item(0).clientHeight;
+    }
   }
 
   ngOnDestroy() {
@@ -74,35 +85,44 @@ export class DisassemblyComponent implements OnInit, OnDestroy {
         const absoluteJumpAdress = this.getAbsoluteAdress(instruction);
 
         if (instruction.mnemo.match('JMP')) {
-          if (instruction.opcode.startsWith('E9') || instruction.opcode.startsWith('EB')) {
-            let elNo = -1;
-            for (const iList of this.interpretedInstructions) {
-              for (let i = 0; i < iList.length; ++i) {
-                if (relativeJumpAdress === iList[i].addr) {
-                  elNo = i;
-                  break;
-                }
-              }
+          if (instruction.mnemo.trim().length > 3) {
+            if (instruction.opcode.startsWith('E9', 2) || instruction.opcode.startsWith('EB', 2)) {
+              const elNo = this.getElNo(relativeJumpAdress);
+              op1 = `<span appJump="${elNo}">${instruction.op1}</span>`;
+            } else if (instruction.opcode.startsWith('FF')) {
+              op1 = '<span>' + instruction.op1 + '</span>';
             }
-
-            op1 = `<span appJump="${elNo}">${instruction.op1}</span>`;
-          } else if (instruction.opcode.startsWith('FF')) {
-            op1 = '<span>' + instruction.op1 + '</span>';
+          } else {
+            if (instruction.opcode.startsWith('E9') || instruction.opcode.startsWith('EB')) {
+              const elNo = this.getElNo(relativeJumpAdress);
+              op1 = `<span appJump="${elNo}">${instruction.op1}</span>`;
+            } else if (instruction.opcode.startsWith('FF')) {
+              op1 = '<span>' + instruction.op1 + '</span>';
+            }
           }
         } else if (instruction.mnemo.match('CALL')) {
           if (instruction.opcode.startsWith('E8')) {
-            op1 = '<span>' + instruction.op1 + '</span>';
+            const elNo = this.getElNo(relativeJumpAdress);
+            op1 = `<span appJump="${elNo}">${instruction.op1}</span>`;
           } else if (instruction.opcode.startsWith('FF')) {
-            op1 = '<span>' + instruction.op1 + '</span>';
+            // const elNo = this.getElNo(absoluteJumpAdress);
+            // op1 = `<span appJump="${elNo}">${instruction.op1}</span>`;
+            op1 = `<span>${instruction.op1}</span>`;
           }
         } else {
           op1 = '<span>' + instruction.op1 + '</span>';
         }
 
-        row.push(`<li id="${instruction.addr}">`
+
+        let entry = '';
+        if (instruction.addr === this.entryPoint) {
+          entry = 'entry';
+        }
+
+        row.push(`<li id="${instruction.addr}" class="${entry}">`
           + hex.toUpperCase().padEnd(12, ' ')
           + instruction.opcode.padEnd(22, ' ')
-          + instruction.mnemo.trim().padEnd(12, ' ')
+          + instruction.mnemo.trim().padEnd(18, ' ')
           + op1
           + op2
           + op3
@@ -120,8 +140,20 @@ export class DisassemblyComponent implements OnInit, OnDestroy {
       });
     }
 
-    this.scrollValue = 0;
+    this.scrollValue = this.getElNo(this.entryPoint) * this.liHeight + this.liHeight;
     document.getElementById('scrollArea').scrollTop = this.scrollValue;
+  }
+
+  private getElNo(relativeJumpAddress: number) {
+    for (const iList of this.interpretedInstructions) {
+      for (let i = 0; i < iList.length; ++i) {
+        if (relativeJumpAddress === iList[i].addr) {
+          return i;
+        }
+      }
+    }
+
+    return -1;
   }
 
   private getRelativeAdress(instruction: InterpretedInstruction) {

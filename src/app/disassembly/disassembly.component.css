@@ -1,5 +1,5 @@
 #clusterize {
-  width: 1000px;
+  width: 1400px;
 
   background: #404040;
   font-family: monospace;
@@ -13,10 +13,14 @@
 }
 
 ul {
-  height: 600px;
+  height: 800px;
   list-style: none;
 }
 
 :host ::ng-deep li:hover {
   background: #4d4d4d;
+}
+
+:host ::ng-deep .entry {
+  background: #666666;
 }
