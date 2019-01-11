@@ -1,6 +1,6 @@
 #graph {
-  width: 1400px;
-  height: 796px;
+  width: 70vw;
+  height: 41.5vw;
 
   border: 5px inset;
 
@@ -15,7 +15,7 @@
 
 .link {
   fill: none;
-  stroke: mintcream;
+  stroke: deeppink;
   stroke-width: 2px;
 }
 
@@ -28,4 +28,10 @@
 
 .header {
   fill: #d9d9d9;
+}
+
+#reset-button {
+  position: absolute;
+  bottom: 6px;
+  right: 2px;
 }

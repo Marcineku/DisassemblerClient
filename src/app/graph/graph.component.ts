@@ -16,6 +16,8 @@ export class GraphComponent implements OnInit {
   private instructions: InterpretedInstruction[];
   private entryPoint = 0;
   private graph: Graph;
+  private zoomBehaviour;
+  private zoomApplied = false;
 
   constructor() { }
   ngOnInit() { }
@@ -44,12 +46,16 @@ export class GraphComponent implements OnInit {
         this.clear();
         this.needToUpdate = false;
 
-        this.svg = document.getElementById('graph');
+        if (!this.zoomApplied) {
+          this.zoomApplied = true;
+          this.svg = document.getElementById('graph');
+          this.zoomBehaviour = d3.zoom().on('zoom', this.zoom);
+          d3.select(this.svg).call(this.zoomBehaviour);
+        }
+
+        d3.select(this.svg).transition().call(this.zoomBehaviour.transform, d3.zoomIdentity);
         d3.select(this.svg).append('g');
         this.g = document.getElementsByTagName('g')[0];
-        d3.select(this.svg).call(d3.zoom()
-          .scaleExtent([1 / 2, 20])
-          .on('zoom', this.zoom));
 
         // Drawing graph
         const startIndex = this.getInstructionIndex(this.entryPoint);
@@ -177,21 +183,21 @@ export class GraphComponent implements OnInit {
           prog.push(ip.toString(10));
 
           ++x;
-          if (x > 2 * this.instructions.length) {
+          if (x > 3 * this.instructions.length) {
             break;
           }
         }
 
         this.graph.drawCodeSections(codeSections);
 
-        console.log(prog);
-        console.log(codeSections);
-        console.log(locations);
+        // console.log(prog);
+        // console.log(codeSections);
+        // console.log(locations);
 
         for (let i = 0; i < codeSections.length; ++i) {
           for (let j = 0; j < codeSections.length; ++j) {
             if (codeSections[i].header === codeSections[j].header && codeSections[i] !== codeSections[j]) {
-               console.log(codeSections[i]);
+               // console.log(codeSections[i]);
             }
           }
         }
@@ -225,6 +231,10 @@ export class GraphComponent implements OnInit {
     while (graph.firstChild) {
       graph.removeChild(graph.firstChild);
     }
+  }
+
+  reset() {
+    d3.select(this.svg).transition().duration(1000).call(this.zoomBehaviour.transform, d3.zoomIdentity);
   }
 
   private getInstructionIndex(address: number): number {
@@ -345,7 +355,7 @@ class Graph {
 
   private getPreviousCallNodeIndex(index: number) {
     for (let i = index; i >= 0; --i) {
-      if (this.instructions[this.nodes[i].stopIndex].opcode.startsWith('E8')) {
+      if (this.instructions[this.nodes[i].stopIndex].opcode.startsWith('E8') && this.nodes[index].level > this.nodes[i].level) {
         return i;
       }
     }
