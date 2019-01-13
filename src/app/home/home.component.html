@@ -1,7 +1,7 @@
 <mat-grid-list [cols]="4" rowHeight="16:8">
   <mat-grid-tile [colspan]="1" [rowspan]="1">
 
-    <div>
+    <div id="file-upload">
       <h4>Upload x86-32 PE file</h4>
       <form enctype="multipart/form-data" method="post">
         <div>
@@ -9,6 +9,9 @@
                  (change)="onPicked(picked)">
         </div>
       </form>
+      <div *ngIf="isInterpretingFailed" id="file-upload-error-message">
+        {{errorMessage}}
+      </div>
     </div>
 
   </mat-grid-tile>

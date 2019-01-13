@@ -14,6 +14,9 @@ export class HomeComponent implements OnInit {
 
   interpretedInstructions: InterpretedInstruction[][] = [];
 
+  isInterpretingFailed = false;
+  errorMessage = '';
+
   constructor(private app: AppService) { }
 
   ngOnInit() {
@@ -27,6 +30,8 @@ export class HomeComponent implements OnInit {
         data => {
           this.interpretedInstructions = data;
           input.value = null;
+          this.isInterpretingFailed = false;
+          this.errorMessage = '';
 
           if (this.interpretedInstructions) {
             if (this.interpretedInstructions.length > 0) {
@@ -35,6 +40,12 @@ export class HomeComponent implements OnInit {
               this.isGraphDisabled = true;
             }
           }
+        },
+        err => {
+          console.error(err);
+          input.value = null;
+          this.isInterpretingFailed = true;
+          this.errorMessage = 'File error: ' + err.error.message;
         }
       );
     }
@@ -45,6 +56,8 @@ export class HomeComponent implements OnInit {
       this.selectedTab = 0;
       this.app.uploadText(input.value).subscribe(
         data => {
+          this.isInterpretingFailed = false;
+          this.errorMessage = '';
           this.interpretedInstructions = data;
 
           if (this.interpretedInstructions) {
@@ -54,6 +67,11 @@ export class HomeComponent implements OnInit {
               this.isGraphDisabled = true;
             }
           }
+        },
+        err => {
+          console.error(err);
+          this.isInterpretingFailed = true;
+          this.errorMessage = 'Bytecode error: ' + err.error.message;
         }
       );
     }

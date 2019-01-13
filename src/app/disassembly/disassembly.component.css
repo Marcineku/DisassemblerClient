@@ -24,3 +24,17 @@ ul {
 :host ::ng-deep .entry {
   background: #666666;
 }
+
+#goto {
+  position: absolute;
+  top: 6px;
+  right: 20px;
+}
+
+#goto-input {
+  margin: 10px;
+}
+
+#goto-button {
+  margin: 10px;
+}

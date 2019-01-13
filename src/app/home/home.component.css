@@ -3,3 +3,8 @@ textarea {
   background: dimgrey;
   color: #ededed;
 }
+
+#file-upload-error-message {
+  margin-top: 20px;
+  color: red;
+}

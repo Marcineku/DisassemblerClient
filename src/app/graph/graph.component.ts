@@ -81,6 +81,11 @@ export class GraphComponent implements OnInit {
 
             const addr = this.getRelativeAddressDWord(instruction);
 
+            const instructionIndex = this.getInstructionIndex(addr);
+            if (this.instructions[instructionIndex].opcode.startsWith('FF')) {
+              continue;
+            }
+
             const location = 'LOC_' + this.instructions[p].addr.toString(16).padStart(8, '0').toUpperCase();
             if (!locations.includes(location)) {
               locations.push(location);
@@ -88,7 +93,7 @@ export class GraphComponent implements OnInit {
             }
 
             stack.push(ip + 1);
-            ip = this.getInstructionIndex(addr);
+            ip = instructionIndex;
 
             if (ip === -1) {
               console.log(addr);
@@ -126,6 +131,11 @@ export class GraphComponent implements OnInit {
 
             const addr = this.getRelativeAddressDWord(instruction);
 
+            const instructionIndex = this.getInstructionIndex(addr);
+            if (this.instructions[instructionIndex].opcode.startsWith('FF')) {
+              continue;
+            }
+
             const location = 'LOC_' + this.instructions[p].addr.toString(16).padStart(8, '0').toUpperCase();
             if (!locations.includes(location)) {
               locations.push(location);
@@ -158,8 +168,17 @@ export class GraphComponent implements OnInit {
             prog.push(ip.toString(10));
 
             const addr = this.getRelativeAddressByte(instruction);
-
+            const index = this.getInstructionIndex(addr);
             const location = 'LOC_' + this.instructions[p].addr.toString(16).padStart(8, '0').toUpperCase();
+
+            let isLoop = false;
+            for (const i of codeSections) {
+              if (i.stopIndex === ip && location === i.header) {
+                isLoop = true;
+              }
+            }
+            if (isLoop) { continue; }
+
             if (!locations.includes(location)) {
               locations.push(location);
               codeSections.push(new CodeSection(stack.length, p, ip, location, addr));
@@ -169,7 +188,7 @@ export class GraphComponent implements OnInit {
             ++p;
 
             stack.push(ip + 1);
-            ip = this.getInstructionIndex(addr);
+            ip = index;
 
             if (ip === -1) {
               console.log(addr);
@@ -183,7 +202,7 @@ export class GraphComponent implements OnInit {
           prog.push(ip.toString(10));
 
           ++x;
-          if (x > 3 * this.instructions.length) {
+          if (x > this.instructions.length) {
             break;
           }
         }
@@ -302,7 +321,7 @@ class Graph {
               nodesFromPreviousLevel.push(j);
             }
           }
-          let maxWidth = nodesFromPreviousLevel[0].width;
+          let maxWidth = 0;
           for (const j of  nodesFromPreviousLevel) {
             if (j.width > maxWidth) {
               maxWidth = j.width;
@@ -403,15 +422,61 @@ class Graph {
   }
 
   private drawLine(source: Node, target: Node) {
-    const x1 = source.x + source.width / 2;
+    target.parentCount += 1;
+    source.childrenCount += 1;
+
+    const linePad = 20;
+
+    const x1 = source.x + source.width / 4 + linePad * source.childrenCount;
     const y1 = source.y + source.height;
-    const x2 = target.x + target.width / 2;
+    const x2 = target.x + target.width / 4 + linePad * target.parentCount;
     const y2 = target.y;
-    d3.select(this.g).append('line').classed('link', true)
-      .attr('x1', x1)
-      .attr('y1', y1)
-      .attr('x2', x2)
-      .attr('y2', y2);
+
+    const nodePad = 40;
+
+    let xp1, yp1;
+    let xp2, yp2;
+    let xp3, yp3;
+    let xp4, yp4;
+
+    xp1 = x1;
+    if (y2 <= y1) {
+      yp1 = y1 + nodePad;
+      yp2 = yp1;
+      if (x2 <= x1) {
+        // target at upper left
+        xp2 = x2 + target.width / 2 + nodePad;
+      } else {
+        // target at upper right
+        xp2 = x2 - target.width / 2 - nodePad;
+      }
+      xp3 = xp2;
+      yp3 = y2 - nodePad - linePad * target.parentCount;
+      xp4 = x2;
+      yp4 = yp3;
+    } else {
+      yp1 = y2 - nodePad - linePad * target.parentCount;
+      xp2 = x2;
+      yp2 = yp1;
+      xp3 = xp2;
+      yp3 = yp2;
+      xp4 = xp3;
+      yp4 = yp3;
+      if (x2 <= x1) {
+        // target at lower left
+      } else {
+        // target at lower right
+      }
+    }
+
+    const color = (x1 * y1 * x2 * y2) % parseInt('FFFFFF', 16);
+    d3.select(this.g).append('polyline').classed('link', true).attr('stroke', '#' + color.toString(16).padStart(6, '0'))
+      .attr('points', `${x1},${y1} ${xp1},${yp1} ${xp2},${yp2} ${xp3},${yp3} ${xp4},${yp4} ${x2},${y2}`);
+
+    /*
+    d3.select(this.g)
+      .append('text').classed('header', true).text(color.toString(16)).attr('x', x1).attr('y', y1 + source.childrenCount * 20);
+    */
   }
 }
 
@@ -422,6 +487,9 @@ class Node extends CodeSection {
   height: number;
 
   content: string;
+
+  parentCount = 0;
+  childrenCount = 0;
 
   constructor(instructions: InterpretedInstruction[], codeSection: CodeSection) {
     super(codeSection.level, codeSection.startIndex, codeSection.stopIndex, codeSection.header, codeSection.targetAddress);

@@ -5,3 +5,9 @@
     </ul>
   </div>
 </div>
+<form id="goto">
+  <mat-form-field>
+    <input matInput placeholder="Address" id="goto-input" #addr>
+  </mat-form-field>
+  <button mat-raised-button id="goto-button" color="primary" (click)="goto(addr.value)">Go to</button>
+</form>

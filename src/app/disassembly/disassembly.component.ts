@@ -60,6 +60,20 @@ export class DisassemblyComponent implements OnInit, OnDestroy, AfterViewChecked
     this.clusterize.destroy(true);
   }
 
+  goto(address: string) {
+    const addr = parseInt(address, 16);
+    for (let i = 0; i < this.interpretedInstructions.length; ++i) {
+      for (let j = 0; j < this.interpretedInstructions[i].length; ++j) {
+        const instr = this.interpretedInstructions[i][j];
+        if (instr.addr === addr) {
+          this.scrollValue = j * this.liHeight + this.liHeight;
+          document.getElementById('scrollArea').scrollTop = this.scrollValue;
+          return;
+        }
+      }
+    }
+  }
+
   private update() {
     const row = [];
     for (const instructionList of this.interpretedInstructions) {
