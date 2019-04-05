@@ -1,6 +1,8 @@
 # Disassembler Client
 
-![alt text]()
+![alt text](https://raw.githubusercontent.com/Marcineku/DisassemblerClient/master/Preview1.png)
+
+![alt text](https://raw.githubusercontent.com/Marcineku/DisassemblerClient/master/Preview2.png)
 
 # Description
 It can disassemble x86 instructions written as a text or uploaded as a x86 PE file.
