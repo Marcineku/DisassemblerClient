@@ -1,27 +1,20 @@
-# DisassemblerClient
+# Disassembler Client
 
-This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 7.0.4.
+![alt text]()
 
-## Development server
+# Description
+It can disassemble x86 instructions written as a text or uploaded as a x86 PE file.
+Disassembly and flow of control graph starts at applications entry point.
+Server was written using Java and Spring framework, client was written in HTML/CSS/TypeScript using Angular framework with Angular Materials
+and packages like clusterize.js for clustering disassembly window scroll area (without it DOM gets insanely big really fast) and d3.js.
 
-Run `ng serve` for a dev server. Navigate to `http://localhost:4200/`. The app will automatically reload if you change any of the source files.
+# App footage
+https://youtu.be/kdIED5CZIVM
 
-## Code scaffolding
+# Important
+As for client:
+After downloading all dependencies, go to clusterize.js package -> clusterize.css -> .clusterize-scroll and change
+max-height from 200px to something like 1200px or window with disassembly will be very short.
 
-Run `ng generate component component-name` to generate a new component. You can also use `ng generate directive|pipe|service|class|guard|interface|enum|module`.
-
-## Build
-
-Run `ng build` to build the project. The build artifacts will be stored in the `dist/` directory. Use the `--prod` flag for a production build.
-
-## Running unit tests
-
-Run `ng test` to execute the unit tests via [Karma](https://karma-runner.github.io).
-
-## Running end-to-end tests
-
-Run `ng e2e` to execute the end-to-end tests via [Protractor](http://www.protractortest.org/).
-
-## Further help
-
-To get more help on the Angular CLI use `ng help` or go check out the [Angular CLI README](https://github.com/angular/angular-cli/blob/master/README.md).
+As for server:
+You need to install lombok plugin or your screen will be red.
