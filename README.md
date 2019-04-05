@@ -10,6 +10,8 @@ Disassembly and flow of control graph starts at applications entry point.
 Server was written using Java and Spring framework, client was written in HTML/CSS/TypeScript using Angular framework with Angular Materials
 and packages like clusterize.js for clustering disassembly window scroll area (without it DOM gets insanely big really fast) and d3.js.
 
+Link to server: https://github.com/Marcineku/DisassemblerServer
+
 # App footage
 https://youtu.be/kdIED5CZIVM
 
